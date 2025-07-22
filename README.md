@@ -11,3 +11,5 @@ Think of this solution as a server authoritive (and free) alternative to Photon.
 - Basic lobby example ( that uses OnGUI ) for creating a room or joining an existing room from the room list  
 - Player prefab swapping (`ReplacePlayerForConnection`), LobbyNetworkPlayer & RoomNetworkPlayer prefabs
 - Auto‑unload of empty rooms and client room‑scene cleanup on disconnect  
+
+(thumbnail.jpg)
