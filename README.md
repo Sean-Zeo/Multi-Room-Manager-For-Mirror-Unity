@@ -12,5 +12,6 @@ This solution follow the KISS design principle (Keep it simple, stupid).
 - Basic lobby example ( that uses OnGUI ) for creating a room or joining an existing room from the room list  
 - Player prefab swapping (`ReplacePlayerForConnection`), LobbyNetworkPlayer & RoomNetworkPlayer prefabs
 - Auto‑unload of empty rooms and client room‑scene cleanup on disconnect  
+- One server, one port, multiple isolated rooms  
 
 ![Example](images/thumbnail.jpg)
