@@ -12,4 +12,4 @@ Think of this solution as a server authoritive (and free) alternative to Photon.
 - Player prefab swapping (`ReplacePlayerForConnection`), LobbyNetworkPlayer & RoomNetworkPlayer prefabs
 - Auto‑unload of empty rooms and client room‑scene cleanup on disconnect  
 
-(thumbnail.jpg)
+![Example](images/thumbnail.jpg)
