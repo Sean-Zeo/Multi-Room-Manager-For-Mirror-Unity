@@ -200,4 +200,13 @@ public class MultiRoomNetworkManager : NetworkManager
         //This is a simple hacky solution to refresh the game if you disconnect
         Application.LoadLevel(0);
     }
+	
+	//This only works on the server, useful for getting room information
+	//Example: MultiRoomNetworkManager.Instance.GetRoomInfoFromScene(gameObject.scene)
+	public RoomInfo GetRoomInfoFromScene(Scene scene)
+	{
+        //Search through the rooms and select the room with the exact scene
+        return rooms.Find(r => r.scene.handle == scene.handle);
+	}
+	
 }
