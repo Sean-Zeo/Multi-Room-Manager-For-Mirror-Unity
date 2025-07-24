@@ -182,7 +182,10 @@ public class MultiRoomNetworkManager : NetworkManager
     {
         //Check if player is already in a room, if so, forbid joining an additional room
         if (connectionToRoom.ContainsKey(conn))
-            return; 
+        {
+            Debug.LogWarning($"[Server] {conn} already in room '{connectionToRoom[conn].roomName}'; join ignored.");
+            return;
+        }
 
         var info = rooms.Find(r => r.roomName == msg.roomName);
         if (info == null || info.currentPlayers >= info.maxPlayers)
