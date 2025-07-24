@@ -10,7 +10,7 @@ using Mirror;
 [RequireComponent(typeof(SceneInterestManagement))]
 public class MultiRoomNetworkManager : NetworkManager
 {
- 
+
     public class RoomInfo
     {
         public string roomName;
@@ -32,6 +32,9 @@ public class MultiRoomNetworkManager : NetworkManager
 
     [HideInInspector]
     public List<RoomInfo> rooms = new List<RoomInfo>();
+
+    //Map a client connection to the room they're in, this is a very performant way to prevent room creation/joining exploits
+    readonly Dictionary<NetworkConnectionToClient, RoomInfo> connectionToRoom = new();
 
     public override void OnStartServer()
     {
@@ -65,6 +68,9 @@ public class MultiRoomNetworkManager : NetworkManager
                 //Decrement count and remove connection
                 info.currentPlayers--;
                 info.playerConnections.Remove(conn);
+                //Cleanup connectionToRoom
+                if (connectionToRoom.ContainsKey(conn))
+                    connectionToRoom.Remove(conn);
                 //if that was last player, unload server‑side
                 if (info.currentPlayers <= 0)
                     StartCoroutine(UnloadRoomWhenEmpty(info));
@@ -111,6 +117,13 @@ public class MultiRoomNetworkManager : NetworkManager
 
     void OnCreateRoom(NetworkConnectionToClient conn, CreateRoomMessage msg)
     {
+        //Check if player is already in a room, if so, forbid the creation of a new room until they leave the existing room
+        if (connectionToRoom.ContainsKey(conn))
+        {
+            Debug.LogWarning($"[Server] {conn} already in room '{connectionToRoom[conn].roomName}'; create ignored.");
+            return;
+        }
+
         //Prevent duplicate room names, this is optional and can be removed if you like
         if (rooms.Exists(r => r.roomName == msg.roomName))
         {
@@ -162,10 +175,15 @@ public class MultiRoomNetworkManager : NetworkManager
         SceneManager.MoveGameObjectToScene(conn.identity.gameObject, newScene);
         info.currentPlayers++;
         info.playerConnections.Add(conn);
+        connectionToRoom[conn] = info;
     }
 
     void OnJoinRoom(NetworkConnectionToClient conn, JoinRoomMessage msg)
     {
+        //Check if player is already in a room, if so, forbid joining an additional room
+        if (connectionToRoom.ContainsKey(conn))
+            return; 
+
         var info = rooms.Find(r => r.roomName == msg.roomName);
         if (info == null || info.currentPlayers >= info.maxPlayers)
             return;
@@ -190,6 +208,7 @@ public class MultiRoomNetworkManager : NetworkManager
         SceneManager.MoveGameObjectToScene(conn.identity.gameObject, info.scene);
         info.currentPlayers++;
         info.playerConnections.Add(conn);
+        connectionToRoom[conn] = info;
     }
 
     //CLIENT: track lobby scene & unload rooms on disconnect
@@ -200,13 +219,13 @@ public class MultiRoomNetworkManager : NetworkManager
         //This is a simple hacky solution to refresh the game if you disconnect
         Application.LoadLevel(0);
     }
-	
-	//This only works on the server, useful for getting room information
-	//Example: MultiRoomNetworkManager.Instance.GetRoomInfoFromScene(gameObject.scene)
-	public RoomInfo GetRoomInfoFromScene(Scene scene)
-	{
+
+    //This only works on the server, useful for getting room information
+    //Example: MultiRoomNetworkManager.Instance.GetRoomInfoFromScene(gameObject.scene)
+    public RoomInfo GetRoomInfoFromScene(Scene scene)
+    {
         //Search through the rooms and select the room with the exact scene
         return rooms.Find(r => r.scene.handle == scene.handle);
-	}
-	
+    }
+
 }
