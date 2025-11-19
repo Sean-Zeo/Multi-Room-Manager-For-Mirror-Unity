@@ -10,7 +10,6 @@ using Mirror;
 [RequireComponent(typeof(SceneInterestManagement))]
 public class MultiRoomNetworkManager : NetworkManager
 {
-
     public class RoomInfo
     {
         public string roomName;
@@ -35,17 +34,18 @@ public class MultiRoomNetworkManager : NetworkManager
 
     //Map a client connection to the room they're in, this is a very performant way to prevent room creation/joining exploits
     readonly Dictionary<NetworkConnectionToClient, RoomInfo> connectionToRoom = new();
-
-    public static MultiRoomNetworkManager Instance {  get; private set; }
-
+    //While MultiRoomNetworkManager is in a scene, you can use "MultiRoomNetworkManager.Instance" to get reference without using GetComponent<>() or finding the object
+	public static MultiRoomNetworkManager Instance {  get; private set; }
+	
     public override void Awake()
     {
+		//We ensure there's only one MultiRoomNetworkManager in scene at all times
         if (Instance != null)
             Destroy(Instance.gameObject);
 
         Instance = this;
         base.Awake();
-    }
+    }	
 
     public override void OnStartServer()
     {
@@ -193,7 +193,7 @@ public class MultiRoomNetworkManager : NetworkManager
     {
         //Check if player is already in a room, if so, forbid joining an additional room
         if (connectionToRoom.ContainsKey(conn))
-            return;
+            return; 
 
         var info = rooms.Find(r => r.roomName == msg.roomName);
         if (info == null || info.currentPlayers >= info.maxPlayers)
