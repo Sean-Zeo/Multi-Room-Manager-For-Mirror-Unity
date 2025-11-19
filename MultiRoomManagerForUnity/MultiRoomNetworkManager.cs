@@ -35,6 +35,7 @@ public class MultiRoomNetworkManager : NetworkManager
     //Map a client connection to the room they're in, this is a very performant way to prevent room creation/joining exploits
     readonly Dictionary<NetworkConnectionToClient, RoomInfo> connectionToRoom = new();
     //If MultiRoomNetworkManager is in a scene, you can use "MultiRoomNetworkManager.Instance" to get reference without using GetComponent<>() or finding the object
+	//"MultiRoomNetworkManager.Instance" works with any script on any gameObject
 	public static MultiRoomNetworkManager Instance {  get; private set; }
 	
     public override void Awake()
