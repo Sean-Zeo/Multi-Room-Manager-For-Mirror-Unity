@@ -36,6 +36,17 @@ public class MultiRoomNetworkManager : NetworkManager
     //Map a client connection to the room they're in, this is a very performant way to prevent room creation/joining exploits
     readonly Dictionary<NetworkConnectionToClient, RoomInfo> connectionToRoom = new();
 
+    public static MultiRoomNetworkManager Instance {  get; private set; }
+
+    public override void Awake()
+    {
+        if (Instance != null)
+            Destroy(Instance.gameObject);
+
+        Instance = this;
+        base.Awake();
+    }
+
     public override void OnStartServer()
     {
         base.OnStartServer();
@@ -182,7 +193,7 @@ public class MultiRoomNetworkManager : NetworkManager
     {
         //Check if player is already in a room, if so, forbid joining an additional room
         if (connectionToRoom.ContainsKey(conn))
-            return; 
+            return;
 
         var info = rooms.Find(r => r.roomName == msg.roomName);
         if (info == null || info.currentPlayers >= info.maxPlayers)
