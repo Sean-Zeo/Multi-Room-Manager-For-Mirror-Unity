@@ -32,6 +32,20 @@ public class MultiRoomNetworkManager : NetworkManager
     [HideInInspector]
     public List<RoomInfo> rooms = new List<RoomInfo>();
 
+    //Create Room Request System
+    bool creatingRoom;
+    public List<CreateRoomRequest> createRoomRequestQueue = new List<CreateRoomRequest>();
+    [System.Serializable]
+    public class CreateRoomRequest
+    {
+        public int connId;
+        public CreateRoomMessage msg;
+    }
+
+    //Unload Empty Scenes System
+    bool unloadingEmptyScene;
+    public List<Scene> emptySceneUnloadQueue = new List<Scene>();
+
     //Map a client connection to the room they're in, this is a very performant way to prevent room creation/joining exploits
     readonly Dictionary<NetworkConnectionToClient, RoomInfo> connectionToRoom = new();
     //If MultiRoomNetworkManager is in a scene, you can use "MultiRoomNetworkManager.Instance" to get reference without using GetComponent<>() or finding the object
@@ -46,7 +60,42 @@ public class MultiRoomNetworkManager : NetworkManager
 
         Instance = this;
         base.Awake();
-    }	
+    }
+
+    public override void Update()
+    {
+        base.Update();
+        if (NetworkServer.active)
+        {
+            if (createRoomRequestQueue.Count > 0)
+            {
+                if (!creatingRoom)
+                {
+                    if (NetworkServer.connections.ContainsKey(createRoomRequestQueue[0].connId))
+                    {
+                        NetworkConnectionToClient conn = NetworkServer.connections[createRoomRequestQueue[0].connId];
+                        if (rooms.Find(r => r.roomName == createRoomRequestQueue[0].msg.roomName) == null)
+                        {
+                            StartCoroutine(CreateRoomCoroutine(conn, createRoomRequestQueue[0].msg));
+                        }
+                    }
+                    createRoomRequestQueue.RemoveAt(0);
+                }
+            }
+
+            if (emptySceneUnloadQueue.Count > 0)
+            {
+                if (!unloadingEmptyScene)
+                {
+                    if (emptySceneUnloadQueue[0] != null)
+                    {
+                        StartCoroutine(UnloadEmptySceneCoroutine(emptySceneUnloadQueue[0]));
+                    }
+                    emptySceneUnloadQueue.RemoveAt(0);
+                }
+            }
+        }
+    }
 
     public override void OnStartServer()
     {
@@ -68,37 +117,31 @@ public class MultiRoomNetworkManager : NetworkManager
     //SERVER: clean up empty rooms when last player disconnects
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
     {
-        //Identify which scene the disconnecting player was in
-        var oldIdentity = conn.identity;
-        if (oldIdentity != null)
+        if (connectionToRoom.ContainsKey(conn) && connectionToRoom[conn] != null)
         {
-            Scene playerScene = oldIdentity.gameObject.scene;
             //Find the matching RoomInfo
-            RoomInfo info = rooms.Find(r => r.scene == playerScene);
-            if (info != null)
-            {
-                //Decrement count and remove connection
-                info.currentPlayers--;
-                info.playerConnections.Remove(conn);
-                //Cleanup connectionToRoom
-                if (connectionToRoom.ContainsKey(conn))
-                    connectionToRoom.Remove(conn);
-                //if that was last player, unload server‑side
-                if (info.currentPlayers <= 0)
-                    StartCoroutine(UnloadRoomWhenEmpty(info));
-            }
-        }
+            RoomInfo info = connectionToRoom[conn];
+            //Decrement count and remove connection
+            info.currentPlayers--;
+            info.playerConnections.Remove(conn);
+            //Cleanup connectionToRoom
+            if (connectionToRoom.ContainsKey(conn))
+                connectionToRoom.Remove(conn);
+            //if that was last player, unload server‑side
+            if (info.currentPlayers <= 0 && info.scene != null)
+                emptySceneUnloadQueue.Add(info.scene);
 
+            rooms.Remove(info);
+        }
         //Continue Mirror’s normal disconnect cleanup
         base.OnServerDisconnect(conn);
     }
 
-    IEnumerator UnloadRoomWhenEmpty(RoomInfo info)
+    IEnumerator UnloadEmptySceneCoroutine(Scene sceneToUnload)
     {
-        //Unload the additive scene
-        yield return SceneManager.UnloadSceneAsync(info.scene);
-        //remove from list so lobby no longer shows it
-        rooms.Remove(info);
+        unloadingEmptyScene = true;
+        yield return SceneManager.UnloadSceneAsync(sceneToUnload);
+        unloadingEmptyScene = false;
     }
 
     //SERVER: handle lobby‑client messages
@@ -142,11 +185,16 @@ public class MultiRoomNetworkManager : NetworkManager
             Debug.LogWarning($"[Server] Room '{msg.roomName}' already exists; ignoring.");
             return;
         }
-        StartCoroutine(CreateRoomCoroutine(conn, msg));
+
+        CreateRoomRequest createRoomRequest = new CreateRoomRequest();
+        createRoomRequest.connId = conn.connectionId;
+        createRoomRequest.msg = msg;
+        createRoomRequestQueue.Add(createRoomRequest);
     }
 
     IEnumerator CreateRoomCoroutine(NetworkConnectionToClient conn, CreateRoomMessage msg)
     {
+        creatingRoom = true;
         //1) Load scene additively on server (isolated physics based on choice within inspector)
         var loadOp = SceneManager.LoadSceneAsync(
             msg.sceneName,
@@ -158,7 +206,6 @@ public class MultiRoomNetworkManager : NetworkManager
         yield return loadOp;
 
         Scene newScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
-
         //2) Register room
         var info = new RoomInfo
         {
@@ -181,13 +228,14 @@ public class MultiRoomNetworkManager : NetworkManager
 
         //4) Swap their lobby player for a room player
         var roomGO = Instantiate(roomPlayerPrefab);
-        NetworkServer.ReplacePlayerForConnection(conn, roomGO, true);
+        NetworkServer.ReplacePlayerForConnection(conn, roomGO, ReplacePlayerOptions.Destroy);
 
         //5) Move the new player into the room scene
         SceneManager.MoveGameObjectToScene(conn.identity.gameObject, newScene);
         info.currentPlayers++;
         info.playerConnections.Add(conn);
         connectionToRoom[conn] = info;
+        creatingRoom = false;
     }
 
     void OnJoinRoom(NetworkConnectionToClient conn, JoinRoomMessage msg)
@@ -214,7 +262,7 @@ public class MultiRoomNetworkManager : NetworkManager
 
         //2) Swap in their room‑player
         var roomGO = Instantiate(roomPlayerPrefab);
-        NetworkServer.ReplacePlayerForConnection(conn, roomGO, true);
+        NetworkServer.ReplacePlayerForConnection(conn, roomGO, ReplacePlayerOptions.Destroy);
 
         //3) Move them into the room scene
         SceneManager.MoveGameObjectToScene(conn.identity.gameObject, info.scene);
