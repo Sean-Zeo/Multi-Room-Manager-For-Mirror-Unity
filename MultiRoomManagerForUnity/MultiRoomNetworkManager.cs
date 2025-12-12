@@ -127,9 +127,13 @@ public class MultiRoomNetworkManager : NetworkManager
             //Cleanup connectionToRoom
             if (connectionToRoom.ContainsKey(conn))
                 connectionToRoom.Remove(conn);
-            //if that was last player, unload server‑side
-            if (info.currentPlayers <= 0 && info.scene != null)
-                emptySceneUnloadQueue.Add(info.scene);
+            //If that was last player, unload server‑side
+            if (info.currentPlayers <= 0)
+            {
+             if(info.scene != null)
+               emptySceneUnloadQueue.Add(info.scene);
+             rooms.Remove(info);
+            }
 
             rooms.Remove(info);
         }
