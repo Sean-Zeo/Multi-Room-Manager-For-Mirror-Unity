@@ -134,8 +134,6 @@ public class MultiRoomNetworkManager : NetworkManager
                emptySceneUnloadQueue.Add(info.scene);
              rooms.Remove(info);
             }
-
-            rooms.Remove(info);
         }
         //Continue Mirror’s normal disconnect cleanup
         base.OnServerDisconnect(conn);
