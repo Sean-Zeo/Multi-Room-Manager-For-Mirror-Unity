@@ -179,17 +179,16 @@ public class MultiRoomNetworkManager : NetworkManager
             yield return null;
 
         Scene newScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
-        RoomInfo info = new RoomInfo
-        {
-            roomName = msg.roomName,
-            roomData = msg.roomData,
-            sceneName = msg.sceneName,
-            maxPlayers = msg.maxPlayers,
-            scene = newScene
-        };
-
         if (conn != null && NetworkServer.connections.ContainsKey(conn.connectionId))
         {
+            RoomInfo info = new RoomInfo
+            {
+                roomName = msg.roomName,
+                roomData = msg.roomData,
+                sceneName = msg.sceneName,
+                maxPlayers = msg.maxPlayers,
+                scene = newScene
+            };
             if (roomPlayerPrefab != null)
             {
                 NetworkIdentity newRoomPlayer = Instantiate(roomPlayerPrefab);
