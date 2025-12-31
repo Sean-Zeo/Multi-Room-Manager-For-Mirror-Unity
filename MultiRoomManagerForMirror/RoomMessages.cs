@@ -1,7 +1,6 @@
 using Mirror;
 
 public struct RoomListRequestMessage : NetworkMessage { }
-
 public struct RoomListResponseMessage : NetworkMessage
 {
     public string[] roomNames;
